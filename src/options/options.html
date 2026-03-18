@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Keyboard Shortcut Manager</title>
+  <link rel="stylesheet" href="../styles/options.css"/>
+</head>
+<body>
+<div class="ksm-app">
+
+  <header class="ksm-app-header">
+    <div class="ksm-app-title">
+      <div class="ksm-app-logo">⌨</div>
+      Keyboard Shortcut Manager
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span style="font-size:12px;color:var(--ksm-text-muted);">Press <kbd style="font-family:monospace;background:var(--ksm-bg);border:1px solid var(--ksm-border);border-radius:3px;padding:1px 6px;">Ctrl+Shift+P</kbd> on any page to open the command palette</span>
+      <label class="ksm-toggle" title="Enable/disable extension">
+        <input type="checkbox" id="ksm-global-enabled"/>
+        <span class="ksm-toggle-track"></span>
+        <span class="ksm-toggle-thumb"></span>
+      </label>
+    </div>
+  </header>
+
+  <nav class="ksm-tabs">
+    <button class="ksm-tab active" data-tab="dashboard">Dashboard</button>
+    <button class="ksm-tab" data-tab="new-shortcut">New Shortcut</button>
+    <button class="ksm-tab" data-tab="macros">Macros</button>
+    <button class="ksm-tab" data-tab="analytics">Analytics</button>
+    <button class="ksm-tab" data-tab="settings">Settings</button>
+    <button class="ksm-tab" data-tab="import-export">Import / Export</button>
+  </nav>
+
+  <main>
+    <!-- Dashboard -->
+    <div class="ksm-tab-panel active" id="tab-dashboard">
+      <div class="ksm-flex-between ksm-mb-4">
+        <h2 style="font-size:16px;font-weight:600;">All shortcuts</h2>
+        <button class="ksm-btn ksm-btn-primary" id="opt-new-shortcut-btn">+ New Shortcut</button>
+      </div>
+      <div id="dashboard-container"></div>
+    </div>
+
+    <!-- New Shortcut -->
+    <div class="ksm-tab-panel" id="tab-new-shortcut">
+      <div id="shortcut-editor-container"></div>
+    </div>
+
+    <!-- Macros -->
+    <div class="ksm-tab-panel" id="tab-macros">
+      <div class="ksm-flex-between ksm-mb-4">
+        <h2 style="font-size:16px;font-weight:600;">Macros</h2>
+        <button class="ksm-btn ksm-btn-primary" id="opt-new-macro-btn">+ New Macro</button>
+      </div>
+      <div id="macros-list-container"></div>
+      <div id="macro-editor-container" style="display:none;margin-top:20px;"></div>
+    </div>
+
+    <!-- Analytics -->
+    <div class="ksm-tab-panel" id="tab-analytics">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:20px;">Usage analytics</h2>
+      <div id="analytics-container"></div>
+    </div>
+
+    <!-- Settings -->
+    <div class="ksm-tab-panel" id="tab-settings">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:20px;">Settings</h2>
+      <div id="settings-container"></div>
+    </div>
+
+    <!-- Import / Export -->
+    <div class="ksm-tab-panel" id="tab-import-export">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:20px;">Import / Export</h2>
+      <div id="import-export-container"></div>
+    </div>
+  </main>
+
+</div>
+
+<script type="module" src="options.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Keyboard Shortcut Manager",
+    "description": "Extension name"
+  },
+  "appDescription": {
+    "message": "Create and manage custom keyboard shortcuts for any website. Supports macros, text expansion, and a command palette.",
+    "description": "Extension description"
+  }
+}

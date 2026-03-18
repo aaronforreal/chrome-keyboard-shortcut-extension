@@ -1,0 +1,309 @@
+@import url("tokens.css");
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--ksm-font);
+  font-size: 13px;
+  color: var(--ksm-text);
+  background: var(--ksm-bg);
+  width: 360px;
+  min-height: 200px;
+  max-height: 520px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Header ─── */
+.ksm-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  background: var(--ksm-surface);
+  border-bottom: 1px solid var(--ksm-border);
+}
+
+.ksm-popup-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ksm-logo {
+  width: 20px;
+  height: 20px;
+  background: var(--ksm-blue);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ksm-app-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ksm-text);
+}
+
+.ksm-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Toggle switch */
+.ksm-toggle {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.ksm-toggle input { display: none; }
+
+.ksm-toggle-track {
+  position: absolute;
+  inset: 0;
+  background: var(--ksm-border);
+  border-radius: 10px;
+  transition: background var(--ksm-transition);
+}
+
+.ksm-toggle input:checked ~ .ksm-toggle-track {
+  background: var(--ksm-blue);
+}
+
+.ksm-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: left var(--ksm-transition);
+}
+
+.ksm-toggle input:checked ~ .ksm-toggle-thumb { left: 18px; }
+
+.ksm-icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ksm-text-muted);
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  transition: color var(--ksm-transition), background var(--ksm-transition);
+}
+.ksm-icon-btn:hover { color: var(--ksm-text); background: var(--ksm-border); }
+
+/* ─── Site info ─── */
+.ksm-site-info {
+  padding: 10px 16px;
+  background: var(--ksm-blue-light);
+  border-bottom: 1px solid var(--ksm-border);
+}
+
+.ksm-site-host {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ksm-blue);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ksm-site-count {
+  font-size: 11px;
+  color: var(--ksm-text-muted);
+  margin-top: 2px;
+}
+
+/* ─── Shortcut list ─── */
+.ksm-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ksm-text-muted);
+  padding: 10px 16px 6px;
+}
+
+.ksm-shortcut-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0 4px;
+}
+
+.ksm-shortcut-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background var(--ksm-transition);
+  border-radius: 0;
+}
+
+.ksm-shortcut-item:hover { background: rgba(0,0,0,0.03); }
+
+.ksm-shortcut-keys {
+  font-family: var(--ksm-font-mono);
+  font-size: 11px;
+  background: var(--ksm-surface);
+  border: 1px solid var(--ksm-border);
+  border-radius: 4px;
+  padding: 2px 7px;
+  color: var(--ksm-text);
+  white-space: nowrap;
+  min-width: 70px;
+  text-align: center;
+}
+
+.ksm-shortcut-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--ksm-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ksm-shortcut-type {
+  font-size: 10px;
+  color: var(--ksm-text-muted);
+  background: var(--ksm-bg);
+  border: 1px solid var(--ksm-border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  text-transform: capitalize;
+}
+
+.ksm-empty-state {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--ksm-text-muted);
+  font-size: 13px;
+}
+
+.ksm-empty-state p { margin-bottom: 12px; }
+
+/* ─── Footer buttons ─── */
+.ksm-popup-footer {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--ksm-border);
+  background: var(--ksm-surface);
+}
+
+.ksm-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-family: var(--ksm-font);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--ksm-transition), color var(--ksm-transition);
+  border: none;
+  text-decoration: none;
+}
+
+.ksm-btn-primary {
+  background: var(--ksm-blue);
+  color: white;
+}
+.ksm-btn-primary:hover { background: var(--ksm-blue-hover); }
+
+.ksm-btn-secondary {
+  background: var(--ksm-bg);
+  color: var(--ksm-text);
+  border: 1px solid var(--ksm-border);
+}
+.ksm-btn-secondary:hover { background: var(--ksm-border); }
+
+/* ─── Quick add form ─── */
+.ksm-quick-add {
+  padding: 12px 16px;
+  border-top: 1px solid var(--ksm-border);
+  background: var(--ksm-surface);
+  display: none;
+}
+.ksm-quick-add.open { display: block; }
+
+.ksm-quick-add-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ksm-text);
+  margin-bottom: 10px;
+}
+
+.ksm-form-group {
+  margin-bottom: 10px;
+}
+
+.ksm-form-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ksm-text-muted);
+  margin-bottom: 4px;
+}
+
+.ksm-form-input,
+.ksm-form-select {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--ksm-border);
+  border-radius: 6px;
+  font-family: var(--ksm-font);
+  font-size: 12px;
+  color: var(--ksm-text);
+  background: var(--ksm-bg);
+  outline: none;
+  transition: border-color var(--ksm-transition);
+}
+.ksm-form-input:focus,
+.ksm-form-select:focus { border-color: var(--ksm-blue); }
+
+.ksm-key-recorder {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px dashed var(--ksm-border);
+  border-radius: 6px;
+  font-family: var(--ksm-font-mono);
+  font-size: 12px;
+  color: var(--ksm-text-muted);
+  background: var(--ksm-bg);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color var(--ksm-transition);
+}
+.ksm-key-recorder.recording {
+  border-color: var(--ksm-blue);
+  color: var(--ksm-blue);
+  animation: ksm-pulse 1s infinite;
+}
+
+@keyframes ksm-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--ksm-border); border-radius: 2px; }

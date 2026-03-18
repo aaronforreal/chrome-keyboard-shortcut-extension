@@ -1,0 +1,48 @@
+:root {
+  /* Colors */
+  --ksm-bg:           #FAFAFA;
+  --ksm-surface:      #FFFFFF;
+  --ksm-border:       #E2E8F0;
+  --ksm-border-focus: #93C5FD;
+  --ksm-text:         #1A202C;
+  --ksm-text-muted:   #718096;
+  --ksm-text-light:   #A0AEC0;
+
+  --ksm-blue:         #3B82F6;
+  --ksm-blue-hover:   #2563EB;
+  --ksm-blue-active:  #1D4ED8;
+  --ksm-blue-light:   #EFF6FF;
+  --ksm-blue-border:  #BFDBFE;
+
+  --ksm-red:          #EF4444;
+  --ksm-red-light:    #FEF2F2;
+  --ksm-yellow:       #F59E0B;
+  --ksm-yellow-light: #FFFBEB;
+  --ksm-green:        #10B981;
+  --ksm-green-light:  #ECFDF5;
+
+  /* Typography */
+  --ksm-font:         -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --ksm-font-mono:    "JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+
+  /* Spacing */
+  --ksm-space-1:  4px;
+  --ksm-space-2:  8px;
+  --ksm-space-3:  12px;
+  --ksm-space-4:  16px;
+  --ksm-space-5:  20px;
+  --ksm-space-6:  24px;
+
+  /* Borders */
+  --ksm-radius-sm: 4px;
+  --ksm-radius:    8px;
+  --ksm-radius-lg: 12px;
+
+  /* Shadows */
+  --ksm-shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --ksm-shadow:    0 4px 12px rgba(0,0,0,0.10), 0 2px 4px rgba(0,0,0,0.06);
+  --ksm-shadow-lg: 0 20px 40px rgba(0,0,0,0.15), 0 8px 16px rgba(0,0,0,0.08);
+
+  /* Transitions */
+  --ksm-transition: 150ms ease;
+}
