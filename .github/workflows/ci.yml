@@ -44,6 +44,7 @@ jobs:
           xvfb-run --auto-servernum npm run test:e2e
         env:
           PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'false'
+          HEADLESS: 'false'
 
       - name: Upload E2E failure screenshots
         if: failure()
