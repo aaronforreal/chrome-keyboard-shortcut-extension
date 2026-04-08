@@ -385,7 +385,11 @@ var Dashboard = class {
       btn.addEventListener("click", async () => {
         if (!confirm("Delete this shortcut?"))
           return;
-        await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.DELETE_SHORTCUT, payload: { id: btn.dataset.id } });
+        const res = await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.DELETE_SHORTCUT, payload: { id: btn.dataset.id } });
+        if (!res?.success) {
+          alert("Failed to delete shortcut. Please try again.");
+          return;
+        }
         this.shortcuts = this.shortcuts.filter((x) => x.id !== btn.dataset.id);
         this._filter();
         this._renderRows();
@@ -518,6 +522,8 @@ function normalizeCombo(event) {
   });
   const orderedMods = MODIFIER_ORDER.map((m) => m === "meta" && platform === "mac" ? "cmd" : m).filter((m) => normalizedMods.includes(m));
   const rawKey = event.key;
+  if (!rawKey)
+    return null;
   if (rawKey in KEY_ALIASES) {
     if (KEY_ALIASES[rawKey] === null)
       return null;
@@ -1732,7 +1738,6 @@ function openShortcutEditor(shortcut) {
   new ShortcutEditor(container, {
     shortcut,
     onSaved: () => {
-      _dashboard.load();
       switchTab("dashboard");
     },
     onCancel: () => switchTab("dashboard")

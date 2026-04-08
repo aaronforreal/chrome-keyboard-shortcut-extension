@@ -90,8 +90,7 @@ function openShortcutEditor(shortcut) {
   new ShortcutEditor(container, {
     shortcut,
     onSaved: () => {
-      _dashboard.load();
-      switchTab('dashboard');
+      switchTab('dashboard'); // switchTab already calls _dashboard.load()
     },
     onCancel: () => switchTab('dashboard'),
   });

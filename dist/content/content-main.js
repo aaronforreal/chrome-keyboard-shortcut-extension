@@ -167,6 +167,8 @@ var __KSM_CONTENT__ = (() => {
     });
     const orderedMods = MODIFIER_ORDER.map((m) => m === "meta" && platform === "mac" ? "cmd" : m).filter((m) => normalizedMods.includes(m));
     const rawKey = event.key;
+    if (!rawKey)
+      return null;
     if (rawKey in KEY_ALIASES) {
       if (KEY_ALIASES[rawKey] === null)
         return null;
@@ -204,10 +206,17 @@ var __KSM_CONTENT__ = (() => {
   var _leaderPending = false;
   var _leaderTimer = null;
   var _comboIndex = {};
+  var _HANDLER_KEY = "__KSM_KEYDOWN_HANDLER__";
   function initKeyInterceptor(shortcuts, settings) {
+    const stale = window[_HANDLER_KEY];
+    if (stale) {
+      document.removeEventListener("keydown", stale, true);
+    }
     _shortcuts = shortcuts;
     _settings = settings;
     _rebuildIndex();
+    document.addEventListener("keydown", handleKeyDown, true);
+    window[_HANDLER_KEY] = handleKeyDown;
   }
   function updateShortcuts(shortcuts, settings) {
     _shortcuts = shortcuts;
@@ -224,16 +233,22 @@ var __KSM_CONTENT__ = (() => {
   function _triggerRefresh() {
     if (_refreshPending)
       return;
+    if (!_isContextValid())
+      return;
     _refreshPending = true;
-    chrome.runtime.sendMessage({ type: MESSAGE_TYPES.REQUEST_SHORTCUTS }).then((response) => {
-      if (response?.success && response.shortcuts?.length) {
-        updateShortcuts(response.shortcuts, response.settings || {});
-        console.log("[KSM] Shortcuts recovered after SW wake-up");
-      }
-    }).catch(() => {
-    }).finally(() => {
+    try {
+      chrome.runtime.sendMessage({ type: MESSAGE_TYPES.REQUEST_SHORTCUTS }).then((response) => {
+        if (response?.success && response.shortcuts?.length) {
+          updateShortcuts(response.shortcuts, response.settings || {});
+          console.log("[KSM] Shortcuts recovered after SW wake-up");
+        }
+      }).catch(() => {
+      }).finally(() => {
+        _refreshPending = false;
+      });
+    } catch {
       _refreshPending = false;
-    });
+    }
   }
   function _rebuildIndex() {
     _comboIndex = {};
@@ -275,8 +290,25 @@ var __KSM_CONTENT__ = (() => {
     const global = candidates.filter((s) => s.scope.type === "global");
     return global.length > 0 ? global[0] : null;
   }
-  document.addEventListener("keydown", handleKeyDown, true);
+  function _isContextValid() {
+    try {
+      return !!chrome.runtime?.id;
+    } catch {
+      return false;
+    }
+  }
   function handleKeyDown(event) {
+    if (!_isContextValid()) {
+      document.removeEventListener("keydown", handleKeyDown, true);
+      return;
+    }
+    try {
+      _handleKeyDownSafe(event);
+    } catch (err) {
+      document.removeEventListener("keydown", handleKeyDown, true);
+    }
+  }
+  function _handleKeyDownSafe(event) {
     if (_captureDisabled)
       return;
     if (_settings.enabled === false)
@@ -292,7 +324,9 @@ var __KSM_CONTENT__ = (() => {
     if (combo === paletteKey) {
       event.preventDefault();
       event.stopPropagation();
-      chrome.runtime.sendMessage({ type: MESSAGE_TYPES.SHOW_COMMAND_PALETTE });
+      const { showPalette } = window.__KSM__ || {};
+      if (showPalette)
+        showPalette();
       return;
     }
     const hintsKey = _settings.hintsActivationKey || "alt+h";
@@ -341,13 +375,18 @@ var __KSM_CONTENT__ = (() => {
     }
   }
   function fireShortcut(shortcut) {
-    chrome.runtime.sendMessage({
-      type: MESSAGE_TYPES.SHORTCUT_FIRED,
-      payload: {
-        shortcutId: shortcut.id,
-        context: { url: window.location.href }
-      }
-    }).catch((err) => console.warn("[KSM] Could not fire shortcut:", err));
+    if (!_isContextValid())
+      return;
+    try {
+      chrome.runtime.sendMessage({
+        type: MESSAGE_TYPES.SHORTCUT_FIRED,
+        payload: {
+          shortcutId: shortcut.id,
+          context: { url: window.location.href }
+        }
+      }).catch((err) => console.warn("[KSM] Could not fire shortcut:", err));
+    } catch {
+    }
   }
 
   // src/content/undo-manager.js
@@ -577,10 +616,33 @@ var __KSM_CONTENT__ = (() => {
     setTimeout(() => toast.remove(), 2500);
   }
   async function executeMacroStep(step) {
+    if (step.type === "navigate") {
+      if (!step.url)
+        return { success: false, error: "No URL specified for navigate step" };
+      window.location.href = step.url;
+      return { success: true, undoable: false };
+    }
+    if (step.type === "wait") {
+      return { success: true, undoable: false };
+    }
+    if (step.type === "keyboard") {
+      return { success: false, error: "Keyboard macro steps are not supported \u2014 synthetic key events are untrusted and ignored by most handlers" };
+    }
+    if (step.type === "script") {
+      if (!step.script)
+        return { success: false, error: "No script specified for script step" };
+      try {
+        const fn = new Function(step.script);
+        await fn();
+        return { success: true, undoable: false };
+      } catch (err) {
+        return { success: false, error: `Script error: ${err.message}` };
+      }
+    }
     const pseudoAction = {
-      type: step.type,
+      type: step.type === "copy" ? ACTION_TYPES.CLIPBOARD : step.type,
       scrollAmount: step.value,
-      scrollDirection: step.value,
+      scrollDirection: step.scrollDirection,
       clickSelector: step.selector,
       fillSelector: step.selector,
       fillValue: step.value,
@@ -959,117 +1021,146 @@ var __KSM_CONTENT__ = (() => {
   }
 
   // src/content/content-main.js
-  window.__KSM__ = { toggleHintOverlay };
-  console.log("[KSM] Content script loaded");
-  async function requestShortcutsWithRetry() {
-    for (let attempt = 1; attempt <= 2; attempt++) {
+  (function bootstrap() {
+    if (window.__KSM_INITIALIZED__)
+      return;
+    window.__KSM_INITIALIZED__ = true;
+    function _matchesScope(shortcut, url) {
+      if (!shortcut.scope)
+        return false;
+      const { type, urlPattern, urlPatternType } = shortcut.scope;
+      if (type === "global")
+        return true;
+      if (!urlPattern || !url)
+        return false;
       try {
-        const response = await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.REQUEST_SHORTCUTS });
-        if (response?.success)
-          return response;
-      } catch (err) {
-        if (attempt === 2)
-          console.warn("[KSM] Could not load shortcuts after retry:", err);
-        else
-          await new Promise((r) => setTimeout(r, 300));
+        if (urlPatternType === "regex")
+          return new RegExp(urlPattern).test(url);
+        const escaped = urlPattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".");
+        return new RegExp(`^${escaped}$`, "i").test(url);
+      } catch {
+        return false;
       }
     }
-    return null;
-  }
-  async function init() {
-    let shortcuts = [];
-    let settings = {};
-    const response = await requestShortcutsWithRetry();
-    if (response) {
-      shortcuts = response.shortcuts || [];
-      settings = response.settings || {};
-    } else {
-      try {
-        const data = await chrome.storage.sync.get({ shortcuts: {}, settings: {} });
-        shortcuts = Object.values(data.shortcuts || {}).filter((s) => s.enabled);
-        settings = data.settings || {};
-        console.warn("[KSM] SW unreachable \u2014 loaded shortcuts directly from storage");
-      } catch (e) {
-        console.warn("[KSM] Could not load shortcuts from storage:", e);
+    window.__KSM__ = { toggleHintOverlay, showPalette: show2 };
+    console.log("[KSM] Content script loaded");
+    async function requestShortcutsWithRetry() {
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const response = await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.REQUEST_SHORTCUTS });
+          if (response?.success)
+            return response;
+        } catch (err) {
+          if (attempt === 2)
+            console.warn("[KSM] Could not load shortcuts after retry:", err);
+          else
+            await new Promise((r) => setTimeout(r, 300));
+        }
       }
+      return null;
     }
-    initKeyInterceptor(shortcuts, settings);
-    initTextExpander(shortcuts);
-    initHintOverlay(shortcuts, settings);
-    initCommandPalette(shortcuts);
-    initOnboarding(settings.onboardingPhase || 0);
-  }
-  init();
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    handleMessage(message).then(sendResponse).catch((err) => {
-      sendResponse({ success: false, error: err.message });
+    async function init() {
+      let shortcuts = [];
+      let settings = {};
+      const response = await requestShortcutsWithRetry();
+      if (response) {
+        shortcuts = response.shortcuts || [];
+        settings = response.settings || {};
+      } else {
+        try {
+          const data = await chrome.storage.sync.get({ shortcuts: {}, settings: {} });
+          const currentUrl = window.location.href;
+          shortcuts = Object.values(data.shortcuts || {}).filter((s) => s.enabled && _matchesScope(s, currentUrl));
+          settings = data.settings || {};
+          console.warn("[KSM] SW unreachable \u2014 loaded shortcuts directly from storage");
+        } catch (e) {
+          console.warn("[KSM] Could not load shortcuts from storage:", e);
+        }
+      }
+      initKeyInterceptor(shortcuts, settings);
+      initTextExpander(shortcuts);
+      initHintOverlay(shortcuts, settings);
+      initCommandPalette(shortcuts);
+      initOnboarding(settings.onboardingPhase || 0);
+    }
+    init();
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      handleMessage(message).then(sendResponse).catch((err) => {
+        sendResponse({ success: false, error: err.message });
+      });
+      return true;
     });
-    return true;
-  });
-  async function handleMessage(message) {
-    const { type, payload } = message;
-    switch (type) {
-      case MESSAGE_TYPES.SHORTCUTS_UPDATED: {
-        const { shortcuts, settings } = payload;
-        updateShortcuts(shortcuts, settings);
-        updateExpansions(shortcuts);
-        updateShortcuts2(shortcuts);
-        updateShortcuts3(shortcuts);
-        return { success: true };
+    async function handleMessage(message) {
+      const { type, payload } = message;
+      switch (type) {
+        case MESSAGE_TYPES.SHORTCUTS_UPDATED: {
+          const { shortcuts, settings } = payload;
+          updateShortcuts(shortcuts, settings);
+          updateExpansions(shortcuts);
+          updateShortcuts2(shortcuts);
+          updateShortcuts3(shortcuts);
+          return { success: true };
+        }
+        case MESSAGE_TYPES.EXECUTE_ACTION: {
+          const result = await executeAction(payload.action);
+          return result;
+        }
+        case MESSAGE_TYPES.EXECUTE_MACRO_STEP: {
+          const { step, sessionId } = payload;
+          const result = await executeMacroStep(step);
+          try {
+            await chrome.runtime.sendMessage({
+              type: MESSAGE_TYPES.MACRO_STEP_DONE,
+              payload: { sessionId, result }
+            });
+          } catch {
+          }
+          return { success: true };
+        }
+        case MESSAGE_TYPES.SHOW_HINT_OVERLAY:
+          show();
+          return { success: true };
+        case MESSAGE_TYPES.HIDE_HINT_OVERLAY:
+          hide();
+          return { success: true };
+        case MESSAGE_TYPES.SHOW_COMMAND_PALETTE:
+          show2();
+          return { success: true };
+        case MESSAGE_TYPES.UNDO_REQUESTED:
+          applyUndo();
+          return { success: true };
+        case MESSAGE_TYPES.LOG_ERROR: {
+          const { message: msg } = payload;
+          showErrorToast(msg);
+          return { success: true };
+        }
+        case MESSAGE_TYPES.DISABLE_KEY_CAPTURE:
+          disableCapture();
+          return { success: true };
+        case MESSAGE_TYPES.ENABLE_KEY_CAPTURE:
+          enableCapture();
+          return { success: true };
+        case MESSAGE_TYPES.SHOW_ONBOARDING_TIP: {
+          advancePhase(payload.phase);
+          return { success: true };
+        }
+        default:
+          return { success: false, error: `Unknown message: ${type}` };
       }
-      case MESSAGE_TYPES.EXECUTE_ACTION: {
-        const result = await executeAction(payload.action);
-        return result;
-      }
-      case MESSAGE_TYPES.EXECUTE_MACRO_STEP: {
-        const { step, sessionId } = payload;
-        const result = await executeMacroStep(step);
-        await chrome.runtime.sendMessage({
-          type: MESSAGE_TYPES.MACRO_STEP_DONE,
-          payload: { sessionId, result }
-        });
-        return { success: true };
-      }
-      case MESSAGE_TYPES.SHOW_HINT_OVERLAY:
-        show();
-        return { success: true };
-      case MESSAGE_TYPES.HIDE_HINT_OVERLAY:
-        hide();
-        return { success: true };
-      case MESSAGE_TYPES.SHOW_COMMAND_PALETTE:
-        show2();
-        return { success: true };
-      case MESSAGE_TYPES.UNDO_REQUESTED:
-        applyUndo();
-        return { success: true };
-      case MESSAGE_TYPES.LOG_ERROR: {
-        const { message: msg } = payload;
-        showErrorToast(msg);
-        return { success: true };
-      }
-      case MESSAGE_TYPES.DISABLE_KEY_CAPTURE:
-        disableCapture();
-        return { success: true };
-      case MESSAGE_TYPES.ENABLE_KEY_CAPTURE:
-        enableCapture();
-        return { success: true };
-      case MESSAGE_TYPES.SHOW_ONBOARDING_TIP: {
-        advancePhase(payload.phase);
-        return { success: true };
-      }
-      default:
-        return { success: false, error: `Unknown message: ${type}` };
     }
-  }
-  function showErrorToast(message) {
-    const existing = document.getElementById("ksm-error-toast");
-    if (existing)
-      existing.remove();
-    const toast = document.createElement("div");
-    toast.id = "ksm-error-toast";
-    toast.className = "ksm-toast ksm-toast-error";
-    toast.innerHTML = `<span>\u26A0</span> ${message}`;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 4e3);
-  }
+    function showErrorToast(message) {
+      const existing = document.getElementById("ksm-error-toast");
+      if (existing)
+        existing.remove();
+      const toast = document.createElement("div");
+      toast.id = "ksm-error-toast";
+      toast.className = "ksm-toast ksm-toast-error";
+      const icon = document.createElement("span");
+      icon.textContent = "\u26A0";
+      toast.appendChild(icon);
+      toast.appendChild(document.createTextNode(" " + message));
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 4e3);
+    }
+  })();
 })();

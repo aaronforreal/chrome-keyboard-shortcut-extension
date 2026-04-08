@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>New Tab</title>
+  <link rel="stylesheet" href="../styles/newtab.css"/>
+</head>
+<body>
+  <div class="ksm-nt-wrap">
+    <header class="ksm-nt-header">
+      <div class="ksm-nt-logo">⌨</div>
+      <h1 class="ksm-nt-title">Keyboard Shortcut Manager</h1>
+    </header>
+
+    <div class="ksm-nt-search-wrap">
+      <input id="ksm-nt-search" class="ksm-nt-search" type="text"
+             placeholder="Search shortcuts… or just press your key combo" autocomplete="off"/>
+    </div>
+
+    <div id="ksm-nt-grid" class="ksm-nt-grid"></div>
+
+    <footer class="ksm-nt-footer">
+      <a id="ksm-nt-options" href="#">Manage shortcuts →</a>
+    </footer>
+  </div>
+
+  <script type="module" src="newtab.js"></script>
+</body>
+</html>

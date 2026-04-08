@@ -13,12 +13,14 @@ import { validateShortcut, validateImportPayload, generateId, createShortcutDefa
 
 // ─── Initialization ──────────────────────────────────────────────────────
 
-self.addEventListener('install', () => {
-  self.skipWaiting();
-});
-
 self.addEventListener('activate', async (event) => {
   event.waitUntil(initialize());
+});
+
+// Inject content scripts into any tabs that were already open when the
+// extension was first installed or updated.
+chrome.runtime.onInstalled.addListener(() => {
+  broadcastShortcutsUpdated();
 });
 
 async function initialize() {
@@ -145,15 +147,18 @@ async function handleMessage(message, sender) {
       let added = 0, updated = 0;
 
       for (const s of imported) {
-        // Assign new IDs to avoid collisions unless merging
         if (payload.merge && existing[s.id]) {
+          // merge mode: update existing shortcut in place
           existing[s.id] = { ...s, updatedAt: Date.now() };
           updated++;
-        } else {
+        } else if (!existing[s.id]) {
+          // add/replace mode: only add if ID is not already present
+          // (replace mode pre-deleted all shortcuts, so existing is empty)
           const newId = generateId('sc');
           existing[newId] = { ...s, id: newId, createdAt: Date.now(), updatedAt: Date.now() };
           added++;
         }
+        // else: add mode with existing ID → skip to prevent duplicates
       }
 
       await bulkSaveShortcuts(Object.values(existing));
@@ -214,6 +219,16 @@ async function handleMessage(message, sender) {
       return { success: true, result };
     }
 
+    case MESSAGE_TYPES.DISABLE_KEY_CAPTURE:
+    case MESSAGE_TYPES.ENABLE_KEY_CAPTURE: {
+      // Sent by the key recorder in the options page; forward to the active tab's content script.
+      const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      if (activeTab?.id) {
+        chrome.tabs.sendMessage(activeTab.id, { type }).catch(() => {});
+      }
+      return { success: true };
+    }
+
     case MESSAGE_TYPES.START_MACRO: {
       const { startMacro } = await import('./macro-runner.js');
       await startMacro(payload.macroId, { tabId, url });
@@ -233,11 +248,36 @@ async function broadcastShortcutsUpdated() {
 
   const tabs = await chrome.tabs.query({});
   for (const tab of tabs) {
-    if (!tab.id) continue;
+    if (!tab.id || !tab.url) continue;
+    // Skip pages where content scripts cannot run
+    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') ||
+        tab.url.startsWith('about:') || tab.url.startsWith('edge://')) continue;
+
     const tabShortcuts = shortcuts.filter(s => s.enabled && matchesScope(s, tab.url || ''));
-    chrome.tabs.sendMessage(tab.id, {
-      type: MESSAGE_TYPES.SHORTCUTS_UPDATED,
-      payload: { shortcuts: tabShortcuts, settings },
-    }).catch(() => {}); // Ignore tabs without content script
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
+        type: MESSAGE_TYPES.SHORTCUTS_UPDATED,
+        payload: { shortcuts: tabShortcuts, settings },
+      });
+    } catch (err) {
+      // Only inject when Chrome confirms the content script is absent.
+      // Other errors (e.g. script still initialising) must not trigger
+      // a second injection, which would cause a double-init error.
+      const absent = err?.message?.includes('Receiving end does not exist') ||
+                     err?.message?.includes('Could not establish connection');
+      if (!absent) continue;
+      try {
+        // Clear the stale init flag so the fresh injection reinitialises fully
+        // (the old content script left __KSM_INITIALIZED__ = true on the window,
+        // which would cause bootstrap() to return early without re-registering
+        // listeners or removing the dead keydown handler).
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => { window.__KSM_INITIALIZED__ = false; },
+        });
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content/content-main.js'] });
+        await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ['styles/overlay.css'] });
+      } catch {}
+    }
   }
 }

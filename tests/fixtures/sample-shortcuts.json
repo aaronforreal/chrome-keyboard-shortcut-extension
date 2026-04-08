@@ -1,0 +1,98 @@
+[
+  {
+    "id": "sc_fixture_001",
+    "name": "Open GitHub",
+    "enabled": true,
+    "trigger": {
+      "type": "combo",
+      "keys": ["ctrl", "shift", "g"],
+      "leaderKey": null,
+      "leaderTimeout": 1500,
+      "abbreviation": null
+    },
+    "scope": { "type": "global", "urlPattern": null, "urlPatternType": "glob" },
+    "action": {
+      "type": "url",
+      "url": "https://github.com",
+      "urlTarget": "new_tab",
+      "scrollAmount": 300,
+      "scrollDirection": "down",
+      "clickSelector": null,
+      "fillSelector": null,
+      "fillValue": null,
+      "script": null,
+      "macroId": null,
+      "clipboardAction": null,
+      "clipboardSelector": null,
+      "clipboardTransform": null,
+      "navigateDirection": "back",
+      "textExpansion": null
+    },
+    "conditions": [],
+    "tags": ["nav"]
+  },
+  {
+    "id": "sc_fixture_002",
+    "name": "Address Expansion",
+    "enabled": true,
+    "trigger": {
+      "type": "text_expansion",
+      "keys": [],
+      "leaderKey": null,
+      "leaderTimeout": 1500,
+      "abbreviation": ";addr"
+    },
+    "scope": { "type": "global", "urlPattern": null, "urlPatternType": "glob" },
+    "action": {
+      "type": "text_expand",
+      "url": null,
+      "urlTarget": "new_tab",
+      "scrollAmount": 300,
+      "scrollDirection": "down",
+      "clickSelector": null,
+      "fillSelector": null,
+      "fillValue": null,
+      "script": null,
+      "macroId": null,
+      "clipboardAction": null,
+      "clipboardSelector": null,
+      "clipboardTransform": null,
+      "navigateDirection": "back",
+      "textExpansion": "123 Main Street"
+    },
+    "conditions": [],
+    "tags": []
+  },
+  {
+    "id": "sc_fixture_003",
+    "name": "Scroll Down",
+    "enabled": true,
+    "trigger": {
+      "type": "combo",
+      "keys": ["alt", "j"],
+      "leaderKey": null,
+      "leaderTimeout": 1500,
+      "abbreviation": null
+    },
+    "scope": { "type": "global", "urlPattern": null, "urlPatternType": "glob" },
+    "action": {
+      "type": "scroll",
+      "url": null,
+      "urlTarget": "new_tab",
+      "scrollAmount": 300,
+      "scrollDirection": "down",
+      "clickSelector": null,
+      "fillSelector": null,
+      "fillValue": null,
+      "script": null,
+      "macroId": null,
+      "clipboardAction": null,
+      "clipboardSelector": null,
+      "clipboardTransform": null,
+      "navigateDirection": "back",
+      "textExpansion": null
+    },
+    "conditions": [],
+    "tags": []
+  }
+]

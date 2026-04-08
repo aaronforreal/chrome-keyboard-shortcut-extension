@@ -479,11 +479,7 @@ async function onStepComplete(sessionId, result) {
   const nextStep = s.macro.steps[s.currentStep];
   const delay = nextStep.delay || 0;
   if (delay > 0) {
-    if (delay < 6e4) {
-      setTimeout(() => executeNextStep(sessionId), delay);
-    } else {
-      chrome.alarms.create(`macro_${sessionId}`, { delayInMinutes: delay / 6e4 });
-    }
+    chrome.alarms.create(`macro_${sessionId}`, { delayInMinutes: Math.max(delay / 6e4, 1 / 60) });
   } else {
     await executeNextStep(sessionId);
   }
@@ -847,7 +843,15 @@ function buildExistingCombo(shortcut) {
   const { trigger } = shortcut;
   if (!trigger || !trigger.keys || trigger.keys.length === 0)
     return null;
-  return buildComboString(trigger.keys) || null;
+  const combo = buildComboString(trigger.keys);
+  if (!combo)
+    return null;
+  if (trigger.type === TRIGGER_TYPES.LEADER_SEQUENCE) {
+    if (!trigger.leaderKey)
+      return null;
+    return `${trigger.leaderKey}>${combo}`;
+  }
+  return combo;
 }
 function scopesOverlap(scopeA, scopeB) {
   if (scopeA.type === SCOPE_TYPES.GLOBAL || scopeB.type === SCOPE_TYPES.GLOBAL)
@@ -1016,11 +1020,11 @@ function createShortcutDefaults(overrides = {}) {
 }
 
 // src/background/service-worker.js
-self.addEventListener("install", () => {
-  self.skipWaiting();
-});
 self.addEventListener("activate", async (event) => {
   event.waitUntil(initialize());
+});
+chrome.runtime.onInstalled.addListener(() => {
+  broadcastShortcutsUpdated();
 });
 async function initialize() {
   await rebuildIndex();
@@ -1124,7 +1128,7 @@ async function handleMessage(message, sender) {
         if (payload.merge && existing[s.id]) {
           existing[s.id] = { ...s, updatedAt: Date.now() };
           updated++;
-        } else {
+        } else if (!existing[s.id]) {
           const newId = generateId("sc");
           existing[newId] = { ...s, id: newId, createdAt: Date.now(), updatedAt: Date.now() };
           added++;
@@ -1177,6 +1181,15 @@ async function handleMessage(message, sender) {
       const result = await checkConflict(combo, scope, excludeId);
       return { success: true, result };
     }
+    case MESSAGE_TYPES.DISABLE_KEY_CAPTURE:
+    case MESSAGE_TYPES.ENABLE_KEY_CAPTURE: {
+      const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      if (activeTab?.id) {
+        chrome.tabs.sendMessage(activeTab.id, { type }).catch(() => {
+        });
+      }
+      return { success: true };
+    }
     case MESSAGE_TYPES.START_MACRO: {
       const { startMacro: startMacro2 } = await Promise.resolve().then(() => (init_macro_runner(), macro_runner_exports));
       await startMacro2(payload.macroId, { tabId, url });
@@ -1191,13 +1204,31 @@ async function broadcastShortcutsUpdated() {
   const settings = await getSettings();
   const tabs = await chrome.tabs.query({});
   for (const tab of tabs) {
-    if (!tab.id)
+    if (!tab.id || !tab.url)
+      continue;
+    if (tab.url.startsWith("chrome://") || tab.url.startsWith("chrome-extension://") || tab.url.startsWith("about:") || tab.url.startsWith("edge://"))
       continue;
     const tabShortcuts = shortcuts.filter((s) => s.enabled && matchesScope(s, tab.url || ""));
-    chrome.tabs.sendMessage(tab.id, {
-      type: MESSAGE_TYPES.SHORTCUTS_UPDATED,
-      payload: { shortcuts: tabShortcuts, settings }
-    }).catch(() => {
-    });
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
+        type: MESSAGE_TYPES.SHORTCUTS_UPDATED,
+        payload: { shortcuts: tabShortcuts, settings }
+      });
+    } catch (err) {
+      const absent = err?.message?.includes("Receiving end does not exist") || err?.message?.includes("Could not establish connection");
+      if (!absent)
+        continue;
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            window.__KSM_INITIALIZED__ = false;
+          }
+        });
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content/content-main.js"] });
+        await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ["styles/overlay.css"] });
+      } catch {
+      }
+    }
   }
 }

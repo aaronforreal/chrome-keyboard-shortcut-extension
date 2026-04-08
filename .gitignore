@@ -1,0 +1,28 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test artifacts
+coverage/
+tests/e2e/screenshots/
+.jest-cache/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+
+# Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+
+# Packed extension artifacts
+*.crx
+*.zip

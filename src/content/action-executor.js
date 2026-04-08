@@ -188,10 +188,39 @@ function showToast(message) {
  * Execute a single macro step in the content script.
  */
 export async function executeMacroStep(step) {
+  // navigate steps use window.location, not the history-only NAVIGATE action type
+  if (step.type === 'navigate') {
+    if (!step.url) return { success: false, error: 'No URL specified for navigate step' };
+    window.location.href = step.url;
+    return { success: true, undoable: false };
+  }
+
+  // wait steps have no DOM action; the delay is handled entirely by macro-runner
+  if (step.type === 'wait') {
+    return { success: true, undoable: false };
+  }
+
+  // keyboard steps cannot be reliably dispatched via synthetic events (isTrusted = false)
+  if (step.type === 'keyboard') {
+    return { success: false, error: 'Keyboard macro steps are not supported — synthetic key events are untrusted and ignored by most handlers' };
+  }
+
+  // script steps run inline in the content script context
+  if (step.type === 'script') {
+    if (!step.script) return { success: false, error: 'No script specified for script step' };
+    try {
+      const fn = new Function(step.script);
+      await fn();
+      return { success: true, undoable: false };
+    } catch (err) {
+      return { success: false, error: `Script error: ${err.message}` };
+    }
+  }
+
   const pseudoAction = {
-    type: step.type,
+    type: step.type === 'copy' ? ACTION_TYPES.CLIPBOARD : step.type,
     scrollAmount: step.value,
-    scrollDirection: step.value,
+    scrollDirection: step.scrollDirection,
     clickSelector: step.selector,
     fillSelector: step.selector,
     fillValue: step.value,

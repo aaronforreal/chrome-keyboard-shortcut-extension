@@ -29,6 +29,15 @@ async function init() {
     return matchesUrl(s.scope, url);
   });
 
+  // Register static button listeners once — do NOT put these inside render()
+  document.getElementById('ksm-add-btn').addEventListener('click', () => {
+    openQuickAdd(document.getElementById('ksm-quick-add-area'));
+  });
+  document.getElementById('ksm-dashboard-btn').addEventListener('click', () => {
+    chrome.runtime.openOptionsPage();
+    window.close();
+  });
+
   render();
 }
 
@@ -62,15 +71,6 @@ function render() {
     },
   });
 
-  // Footer buttons
-  document.getElementById('ksm-add-btn').addEventListener('click', () => {
-    openQuickAdd(document.getElementById('ksm-quick-add-area'));
-  });
-
-  document.getElementById('ksm-dashboard-btn').addEventListener('click', () => {
-    chrome.runtime.openOptionsPage();
-    window.close();
-  });
 }
 
 function matchesUrl(scope, url) {

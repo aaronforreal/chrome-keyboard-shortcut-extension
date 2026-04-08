@@ -75,13 +75,10 @@ export async function onStepComplete(sessionId, result) {
   const delay = nextStep.delay || 0;
 
   if (delay > 0) {
-    if (delay < 60000) {
-      // Use setTimeout for sub-minute delays; chrome.alarms minimum resolution is 1 minute.
-      // Service worker should stay alive for short delays during active macro execution.
-      setTimeout(() => executeNextStep(sessionId), delay);
-    } else {
-      chrome.alarms.create(`macro_${sessionId}`, { delayInMinutes: delay / 60000 });
-    }
+    // Always use chrome.alarms — setTimeout is unreliable because the service worker
+    // can be terminated at any time while idle. chrome.alarms survive SW restarts.
+    // Minimum: 1 second (1/60 minute), which Chrome 110+ supports.
+    chrome.alarms.create(`macro_${sessionId}`, { delayInMinutes: Math.max(delay / 60000, 1 / 60) });
   } else {
     await executeNextStep(sessionId);
   }

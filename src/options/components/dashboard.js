@@ -203,7 +203,11 @@ export class Dashboard {
     tbody.querySelectorAll('.dash-delete-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         if (!confirm('Delete this shortcut?')) return;
-        await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.DELETE_SHORTCUT, payload: { id: btn.dataset.id } });
+        const res = await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.DELETE_SHORTCUT, payload: { id: btn.dataset.id } });
+        if (!res?.success) {
+          alert('Failed to delete shortcut. Please try again.');
+          return;
+        }
         this.shortcuts = this.shortcuts.filter(x => x.id !== btn.dataset.id);
         this._filter();
         this._renderRows();

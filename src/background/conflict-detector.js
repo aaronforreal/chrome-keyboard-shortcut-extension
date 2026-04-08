@@ -3,6 +3,7 @@ import {
   BROWSER_COMMON_SHORTCUTS,
   CONFLICT_TIERS,
   SCOPE_TYPES,
+  TRIGGER_TYPES,
 } from '../shared/constants.js';
 import { getShortcutsArray } from './storage-manager.js';
 import { matchesScope } from './storage-manager.js';
@@ -91,7 +92,14 @@ export async function checkAllConflicts() {
 function buildExistingCombo(shortcut) {
   const { trigger } = shortcut;
   if (!trigger || !trigger.keys || trigger.keys.length === 0) return null;
-  return buildComboString(trigger.keys) || null;
+  const combo = buildComboString(trigger.keys);
+  if (!combo) return null;
+  // Leader sequences use a namespaced format to avoid false conflicts with regular combos
+  if (trigger.type === TRIGGER_TYPES.LEADER_SEQUENCE) {
+    if (!trigger.leaderKey) return null;
+    return `${trigger.leaderKey}>${combo}`;
+  }
+  return combo;
 }
 
 function scopesOverlap(scopeA, scopeB) {

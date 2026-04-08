@@ -405,6 +405,8 @@ function normalizeCombo(event) {
   });
   const orderedMods = MODIFIER_ORDER.map((m) => m === "meta" && platform === "mac" ? "cmd" : m).filter((m) => normalizedMods.includes(m));
   const rawKey = event.key;
+  if (!rawKey)
+    return null;
   if (rawKey in KEY_ALIASES) {
     if (KEY_ALIASES[rawKey] === null)
       return null;
@@ -620,6 +622,13 @@ async function init() {
       return false;
     return matchesUrl(s.scope, url);
   });
+  document.getElementById("ksm-add-btn").addEventListener("click", () => {
+    openQuickAdd(document.getElementById("ksm-quick-add-area"));
+  });
+  document.getElementById("ksm-dashboard-btn").addEventListener("click", () => {
+    chrome.runtime.openOptionsPage();
+    window.close();
+  });
   render();
 }
 function render() {
@@ -645,13 +654,6 @@ function render() {
         tab: _tab
       });
     }
-  });
-  document.getElementById("ksm-add-btn").addEventListener("click", () => {
-    openQuickAdd(document.getElementById("ksm-quick-add-area"));
-  });
-  document.getElementById("ksm-dashboard-btn").addEventListener("click", () => {
-    chrome.runtime.openOptionsPage();
-    window.close();
   });
 }
 function matchesUrl(scope, url) {

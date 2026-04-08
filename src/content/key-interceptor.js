@@ -13,10 +13,27 @@ let _leaderTimer = null;
 // Build a fast lookup map: combo → [shortcut, ...]
 let _comboIndex = {};
 
+// Key used to store the active handler reference on the window so that a
+// future re-injection (after an extension reload) can remove the stale one.
+const _HANDLER_KEY = '__KSM_KEYDOWN_HANDLER__';
+
 export function initKeyInterceptor(shortcuts, settings) {
+  // Remove any stale keydown listener left by a previous injection.
+  // This happens when the extension is reloaded: broadcastShortcutsUpdated
+  // clears __KSM_INITIALIZED__ and re-injects the content script, but the
+  // old listener is still registered on the DOM.
+  const stale = window[_HANDLER_KEY];
+  if (stale) {
+    document.removeEventListener('keydown', stale, true);
+  }
+
   _shortcuts = shortcuts;
   _settings = settings;
   _rebuildIndex();
+  document.addEventListener('keydown', handleKeyDown, true);
+
+  // Persist the reference so the next injection can clean up after this one.
+  window[_HANDLER_KEY] = handleKeyDown;
 }
 
 export function updateShortcuts(shortcuts, settings) {
@@ -32,16 +49,21 @@ export function enableCapture() { _captureDisabled = false; }
 let _refreshPending = false;
 function _triggerRefresh() {
   if (_refreshPending) return;
+  if (!_isContextValid()) return;
   _refreshPending = true;
-  chrome.runtime.sendMessage({ type: MESSAGE_TYPES.REQUEST_SHORTCUTS })
-    .then(response => {
-      if (response?.success && response.shortcuts?.length) {
-        updateShortcuts(response.shortcuts, response.settings || {});
-        console.log('[KSM] Shortcuts recovered after SW wake-up');
-      }
-    })
-    .catch(() => {})
-    .finally(() => { _refreshPending = false; });
+  try {
+    chrome.runtime.sendMessage({ type: MESSAGE_TYPES.REQUEST_SHORTCUTS })
+      .then(response => {
+        if (response?.success && response.shortcuts?.length) {
+          updateShortcuts(response.shortcuts, response.settings || {});
+          console.log('[KSM] Shortcuts recovered after SW wake-up');
+        }
+      })
+      .catch(() => {})
+      .finally(() => { _refreshPending = false; });
+  } catch {
+    _refreshPending = false;
+  }
 }
 
 function _rebuildIndex() {
@@ -82,11 +104,42 @@ function _findMatch(combo) {
   return global.length > 0 ? global[0] : null;
 }
 
+// ─── Context validity ────────────────────────────────────────────────────
+// After an extension reload the runtime context of any still-open tab is
+// invalidated.  chrome.runtime.id becomes undefined and any API call throws
+// "Extension context invalidated." synchronously (before a promise is created,
+// so .catch() can't help).  We guard every outbound chrome.runtime call with
+// this check and remove the stale keydown listener the first time we detect it.
+
+function _isContextValid() {
+  try {
+    return !!chrome.runtime?.id;
+  } catch {
+    return false;
+  }
+}
+
 // ─── Event handlers ──────────────────────────────────────────────────────
 
-document.addEventListener('keydown', handleKeyDown, true);
-
 function handleKeyDown(event) {
+  // Extension was reloaded while this tab was open — stop processing entirely.
+  if (!_isContextValid()) {
+    document.removeEventListener('keydown', handleKeyDown, true);
+    return;
+  }
+
+  try {
+    _handleKeyDownSafe(event);
+  } catch (err) {
+    // Chrome can throw "Extension context invalidated" mid-execution if the
+    // extension is reloaded between the context check above and a Chrome API
+    // call later in the handler.  Catch it here, remove the stale listener,
+    // and swallow the error so it never reaches the extensions error log.
+    document.removeEventListener('keydown', handleKeyDown, true);
+  }
+}
+
+function _handleKeyDownSafe(event) {
   if (_captureDisabled) return;
   if (_settings.enabled === false) return;
 
@@ -104,7 +157,8 @@ function handleKeyDown(event) {
   if (combo === paletteKey) {
     event.preventDefault();
     event.stopPropagation();
-    chrome.runtime.sendMessage({ type: MESSAGE_TYPES.SHOW_COMMAND_PALETTE });
+    const { showPalette } = window.__KSM__ || {};
+    if (showPalette) showPalette();
     return;
   }
 
@@ -165,11 +219,16 @@ function handleKeyDown(event) {
 }
 
 function fireShortcut(shortcut) {
-  chrome.runtime.sendMessage({
-    type: MESSAGE_TYPES.SHORTCUT_FIRED,
-    payload: {
-      shortcutId: shortcut.id,
-      context: { url: window.location.href },
-    },
-  }).catch(err => console.warn('[KSM] Could not fire shortcut:', err));
+  if (!_isContextValid()) return;
+  try {
+    chrome.runtime.sendMessage({
+      type: MESSAGE_TYPES.SHORTCUT_FIRED,
+      payload: {
+        shortcutId: shortcut.id,
+        context: { url: window.location.href },
+      },
+    }).catch(err => console.warn('[KSM] Could not fire shortcut:', err));
+  } catch {
+    // Extension context invalidated — nothing to do.
+  }
 }

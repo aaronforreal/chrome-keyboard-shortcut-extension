@@ -47,17 +47,14 @@ async function build() {
   // Copy CSS files to dist
   copyDir('src/styles', 'dist/styles');
 
-  // Copy HTML files with updated script paths
+  // Copy HTML files
   copyPopupHtml();
   copyOptionsHtml();
 
   // Copy icons
   copyDir('icons', 'dist/icons');
 
-  // Copy locales
-  copyDir('_locales', 'dist/_locales');
-
-  // Write dist manifest
+  // Write dist manifest (no _locales — default_locale removed)
   const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
   manifest.background.service_worker = 'background/service-worker.js';
   manifest.content_scripts[0].js = ['content/content-main.js'];
@@ -69,13 +66,11 @@ async function build() {
   fs.writeFileSync('dist/manifest.json', JSON.stringify(manifest, null, 2));
 
   // Build all JS
-  const contexts = [];
   for (const entry of entryPoints) {
     const config = { ...baseConfig, ...entry };
     if (isWatch) {
       const ctx = await esbuild.context(config);
       await ctx.watch();
-      contexts.push(ctx);
       console.log(`Watching ${entry.entryPoints[0]}…`);
     } else {
       await esbuild.build(config);
@@ -102,19 +97,13 @@ function copyDir(src, dest) {
 }
 
 function copyPopupHtml() {
-  const html = fs.readFileSync('src/popup/popup.html', 'utf8')
-    .replace('../styles/popup.css', '../styles/popup.css')
-    .replace('popup.js', 'popup.js');
   fs.mkdirSync('dist/popup', { recursive: true });
-  fs.writeFileSync('dist/popup/popup.html', html);
+  fs.copyFileSync('src/popup/popup.html', 'dist/popup/popup.html');
 }
 
 function copyOptionsHtml() {
-  const html = fs.readFileSync('src/options/options.html', 'utf8')
-    .replace('../styles/options.css', '../styles/options.css')
-    .replace('options.js', 'options.js');
   fs.mkdirSync('dist/options', { recursive: true });
-  fs.writeFileSync('dist/options/options.html', html);
+  fs.copyFileSync('src/options/options.html', 'dist/options/options.html');
 }
 
 build().catch(err => {

@@ -55,6 +55,7 @@ export function normalizeCombo(event) {
     .filter(m => normalizedMods.includes(m));
 
   const rawKey = event.key;
+  if (!rawKey) return null;
   if (rawKey in KEY_ALIASES) {
     if (KEY_ALIASES[rawKey] === null) return null; // modifier-only
     const key = KEY_ALIASES[rawKey];
